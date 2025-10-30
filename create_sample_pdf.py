@@ -1,24 +1,11 @@
 from fpdf import FPDF
-import re
+from fpdf.enums import XPos, YPos
 
 class PDF(FPDF):
     def footer(self):
         self.set_y(-15)
         self.set_font('DejaVu', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
-
-def write_with_superscript(pdf, text):
-    """
-    Writes text to the PDF, handling superscript characters.
-    """
-    for char in text:
-        if char.isdigit() and  ord(char) > 175 : # Check for superscript digits
-            pdf.char_vpos = "SUP"
-            pdf.write(5, chr(ord(char) - 112)) # Convert to normal digit
-            pdf.char_vpos = "LINE"
-        else:
-            pdf.write(5, char)
-
+        self.cell(0, 10, f'Page {self.page_no()}', new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
 
 def create_sample_pdf(path):
     """
@@ -33,21 +20,21 @@ def create_sample_pdf(path):
     pdf.set_font('DejaVu', '', 12)
 
     # Add body text with footnote references
-    write_with_superscript(pdf, 'This is the first sentence of the document, and it contains a reference to the first footnote¹.')
+    pdf.write_html('This is the first sentence of the document, and it contains a reference to the first footnote<sup>1</sup>.')
     pdf.ln()
-    write_with_superscript(pdf, 'Here is another sentence with a second footnote reference².')
+    pdf.write_html('Here is another sentence with a second footnote reference<sup>2</sup>.')
     pdf.ln()
-    write_with_superscript(pdf, 'A third reference³ can be found in this line.')
+    pdf.write_html('A third reference<sup>3</sup> can be found in this line.')
     pdf.ln()
 
     # Add footnotes at the bottom of the page
     pdf.set_y(-50) # Position at 5 cm from the bottom
     pdf.set_font('DejaVu', '', 10)
-    write_with_superscript(pdf, '¹ This is the first footnote, providing more detail.')
+    pdf.write_html('<sup>1</sup> This is the first footnote, providing more detail.')
     pdf.ln()
-    write_with_superscript(pdf, '² The second footnote is here, with additional information.')
+    pdf.write_html('<sup>2</sup> The second footnote is here, with additional information.')
     pdf.ln()
-    write_with_superscript(pdf, '³ And finally, the third footnote appears here.')
+    pdf.write_html('<sup>3</sup> And finally, the third footnote appears here.')
     pdf.ln()
 
     pdf.output(path)

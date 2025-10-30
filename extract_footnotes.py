@@ -2,6 +2,7 @@ import fitz  # PyMuPDF
 import pandas as pd
 import re
 import os
+import sys
 
 def extract_footnotes(pdf_path):
     """
@@ -18,45 +19,38 @@ def extract_footnotes(pdf_path):
         return pd.DataFrame()
 
     doc = fitz.open(pdf_path)
-    pointers = []
-    footnote_text = ""
+    definitions = []
 
     for i, page in enumerate(doc):
-        blocks = page.get_text("dict")["blocks"]
-        current_pointer = ""
-        footnote_y_threshold = page.rect.height / 2
+        # Get the text from the bottom half of the page
+        rect = page.rect
+        clip = fitz.Rect(0, rect.height / 2, rect.width, rect.height)
+        text = page.get_text(clip=clip)
 
-        for b in blocks:
-            for l in b["lines"]:
-                for s in l["spans"]:
-                    # Check for superscript
-                    if s["flags"] & 1:
-                        pointers.append(re.sub(r'\s+', ' ', current_pointer.strip()))
-                        current_pointer = ""
-                    else:
-                        current_pointer += s["text"]
-
-                    if s["origin"][1] > footnote_y_threshold and "Page" not in s["text"]:
-                        footnote_text += s["text"]
-
-    # Split the footnote text by the footnote markers
-    definitions = re.split(r'(I|B|C)', footnote_text)
-    # Remove empty strings and combine the marker with the definition
-    definitions = [definitions[i] + definitions[i+1] for i in range(1, len(definitions)-1, 2)]
+        # Use regex to find all footnotes
+        # This regex looks for a number, followed by a space, and then captures the rest of the line.
+        # It also handles multi-line footnotes.
+        page_definitions = re.findall(r'(\d+)\s(.*(?:\n(?!\d+\s).*)*)', text)
+        definitions.extend(page_definitions)
 
 
-    df = pd.DataFrame({
-        'id': range(1, len(pointers) + 1),
-        'source_file': os.path.basename(pdf_path),
-        'pointer': pointers,
-        'exhibit_info': definitions,
-        'exhibit_count': len(pointers)
-    })
+    df = pd.DataFrame(definitions, columns=['exhibit_number', 'exhibit_info'])
+    df['id'] = range(1, len(df) + 1)
+    df['source_file'] = os.path.basename(pdf_path)
+    df['exhibit_count'] = len(df)
+    # Add a placeholder for the pointer column
+    df['pointer'] = ""
+
 
     return df
 
 if __name__ == "__main__":
-    df = extract_footnotes("sample.pdf")
+    pdf_path = "sample.pdf"
+    if len(sys.argv) > 1:
+        pdf_path = sys.argv[1]
+
+    df = extract_footnotes(pdf_path)
     if not df.empty:
+        print(df)
         df.to_excel("final_complete_exhibits.xlsx", index=False)
         print("Successfully exported to final_complete_exhibits.xlsx")
